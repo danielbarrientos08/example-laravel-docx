@@ -48,7 +48,7 @@ class DocumentController extends Controller
             $template->setValue('document', $request->document);
             $template->setValue('fullname', $request->fullname);
 
-            $outputFolderPath = storage_path('app/exported_documents');
+            $outputFolderPath = storage_path('app');
             $outputFileName = 'constancia.docx';
             $outputFilePath = $outputFolderPath . '/' . $outputFileName;
 
