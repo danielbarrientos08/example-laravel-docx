@@ -19,7 +19,7 @@ class DocumentController extends Controller
     {
         try {
             // Get template path
-            $templatePath = public_path('documents\template_constancia.docx');
+            $templatePath = public_path('documents/template_constancia.docx');
 
             $replacementVariables = [
                 'document' => $request->document,
