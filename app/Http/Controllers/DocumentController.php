@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use NcJoes\OfficeConverter\OfficeConverter;
+use Illuminate\Support\Facades\File;
+use PhpOffice\PhpWord\TemplateProcessor;
 
 class DocumentController extends Controller
 {
@@ -16,53 +18,74 @@ class DocumentController extends Controller
     public function export(Request $request)
     {
         try {
+            // Get template path
+            $templatePath = public_path('documents\template_constancia.docx');
 
-            $docxFilePath = $this->createDocxFile($request);
+            $replacementVariables = [
+                'document' => $request->document,
+                'fullname' => $request->fullname,
+                // Add more fields
+            ];
 
-            // Define la ruta al directorio de almacenamiento de PDFs
+            // Create new docx from template
+            $docxFilePath = $this->createDocxFile($templatePath, $replacementVariables);
 
-            // Crear una instancia del convertidor
-            $converter = new OfficeConverter($docxFilePath);
+            // Set $bin = soffice for windows and linux
+            $converter = new OfficeConverter($docxFilePath, null, 'soffice');
 
-            $ouputFile = 'file' . time() . '.pdf';
+            // set uoput file name (PDF)
+            $ouputFile = 'Constancia_' . time() . '.pdf';
+
             $converter->convertTo($ouputFile);
-
+            // Save file in storage
             $pdfFilePath = Storage::path($ouputFile);
 
-            // Descargar el archivo PDF
-            return response()->download($pdfFilePath, 'constancia.pdf', [
+            // Download the pdf file
+            $response = response()->download($pdfFilePath, $ouputFile, [
                 'Content-Type' => 'application/pdf',
-            ])->deleteFileAfterSend();
-        } catch (\Exception $th) {
-            dd($th->getMessage());
+            ]);
+
+            // Delete the pdf file after send the response
+            $response->deleteFileAfterSend();
+
+            // Delete the Docx file original
+            File::delete($docxFilePath);
+
+            return $response;
+        } catch (\Throwable $ex) {
+
+            return back()->with('error', $ex->getMessage());
         }
     }
 
-    public function createDocxFile(Request $request)
+    private function createDocxFile(string $templatePath, array $replacementVariables)
     {
         try {
+            // start template process
+            $template = new TemplateProcessor($templatePath);
 
-            $templatePath = Storage::path('template_document.docx');
+            // Set values in template
+            foreach ($replacementVariables as $variable => $value) {
+                $template->setValue($variable, $value);
+            }
 
-            $template = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
-            $template->setValue('document', $request->document);
-            $template->setValue('fullname', $request->fullname);
-
+            // Set
             $outputFolderPath = storage_path('app');
-            $outputFileName = 'constancia.docx';
+            $outputFileName = time() . 'docx';
             $outputFilePath = $outputFolderPath . '/' . $outputFileName;
 
-            // Crear la carpeta de salida si no existe
+            // Create ouput directory if not exists
             if (!file_exists($outputFolderPath)) {
                 mkdir($outputFolderPath, 0755, true);
             }
 
-            // Guardar el archivo generado en la carpeta de salida
+            // Save Docx file in the ouput directory
             $template->saveAs($outputFilePath);
 
             return $outputFilePath;
+
         } catch (\PhpOffice\PhpWord\Exception\Exception $th) {
-            return null;
+            return $th->getMessage();
         }
     }
 }
